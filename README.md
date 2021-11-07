@@ -1,6 +1,6 @@
 <h2> Alquilventacars</h2>
 
-Las recomendacines hasta el momento son:
+<h3>Las recomendacines hasta el momento son:</h3>
 
 Crear una cuenta en GitHub 
 
