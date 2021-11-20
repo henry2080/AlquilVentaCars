@@ -1,30 +1,59 @@
+import {service} from '@loopback/core';
 import {
   Count,
   CountSchema,
   Filter,
   FilterExcludingWhere,
   repository,
-  Where,
+  Where
 } from '@loopback/repository';
 import {
-  post,
-  param,
-  get,
-  getModelSchemaRef,
-  patch,
-  put,
-  del,
-  requestBody,
-  response,
+  del, get,
+  getModelSchemaRef, HttpErrors, param, patch, post, put, requestBody,
+  response
 } from '@loopback/rest';
-import {Persona} from '../models';
+import {Llaves} from '../config/llaves';
+import {Credenciales, Persona} from '../models';
 import {PersonaRepository} from '../repositories';
-
+import {AutenticacionService} from '../services';
+//import {HttpErrors} from '@loopback/rest';
+const fetch = require("node-fetch");
 export class PersonaController {
   constructor(
     @repository(PersonaRepository)
-    public personaRepository : PersonaRepository,
+    public personaRepository: PersonaRepository,
+    @service(AutenticacionService)
+    public servicioAutenticacion: AutenticacionService
   ) {}
+
+  @post("/identificarPersona" ,{
+    responses:{
+      '200': {
+
+        description: "Identificación de Usuarios"
+      }
+    }
+
+  })
+
+  async identificarPersona(
+    @requestBody() credenciales: Credenciales
+  ) {
+    const p = await this.servicioAutenticacion.identificarPersona(credenciales.usuario, credenciales.clave)
+    if (p){
+      const token = this.servicioAutenticacion.generarTokenJWT(p);
+      return{
+        datos:{
+          nombre: p.nombre,
+          correo: p.correo,
+          id: p.id
+        },
+      tk: token
+      }
+    } else {
+      throw new HttpErrors[401]("Datos inválidos");
+    }
+  }
 
   @post('/personas')
   @response(200, {
@@ -44,7 +73,22 @@ export class PersonaController {
     })
     persona: Omit<Persona, 'id'>,
   ): Promise<Persona> {
-    return this.personaRepository.create(persona);
+
+    const clave = this.servicioAutenticacion.generarClave();
+    const claveCifrada = this.servicioAutenticacion.cifrarClave(clave);
+    persona.clave = claveCifrada;
+    const p = await this.personaRepository.create(persona);
+
+  //NOTIFICANDO AL USUARIO
+    const destino = persona.correo;
+    const asunto = 'Registro en la plataforma';
+    const contenido = `Hola ${persona.nombre}, su nombre de usuario es: ${persona.correo} y su contraseña es: ${clave}`;
+    fetch(`${Llaves.urlServicioNotificaciones}/envio-correo?correo_destino=${destino}&asunto=${asunto}&contenido=${contenido}`)
+    .then((data: any) => {
+        console.log(data);
+      });
+    return p;
+
   }
 
   @get('/personas/count')
@@ -148,3 +192,7 @@ export class PersonaController {
     await this.personaRepository.deleteById(id);
   }
 }
+function then(arg0: (data: any) => void) {
+  throw new Error('Function not implemented.');
+}
+

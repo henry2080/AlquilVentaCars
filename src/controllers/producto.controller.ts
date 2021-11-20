@@ -19,13 +19,15 @@ import {
 } from '@loopback/rest';
 import {Producto} from '../models';
 import {ProductoRepository} from '../repositories';
+import {authenticate} from '@loopback/authentication';
 
+@authenticate("admin") //se coloca aqui para que todos los métodos esten protegidos
 export class ProductoController {
   constructor(
     @repository(ProductoRepository)
     public productoRepository : ProductoRepository,
   ) {}
-
+  //@authenticate("admin")
   @post('/productos')
   @response(200, {
     description: 'Producto model instance',
@@ -46,7 +48,7 @@ export class ProductoController {
   ): Promise<Producto> {
     return this.productoRepository.create(producto);
   }
-
+  @authenticate.skip()// con este método desprotego solo esta acción del controlador
   @get('/productos/count')
   @response(200, {
     description: 'Producto model count',
