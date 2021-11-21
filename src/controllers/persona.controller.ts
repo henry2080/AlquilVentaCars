@@ -1,3 +1,4 @@
+import {service} from '@loopback/core';
 import {
   Count,
   CountSchema,
@@ -19,12 +20,25 @@ import {
 } from '@loopback/rest';
 import {Persona} from '../models';
 import {PersonaRepository} from '../repositories';
+import {AutenticacionService} from '../services';
+import {Llaves} from '../config/llaves';
+const fetch = require("node-fetch");
 
 export class PersonaController {
   constructor(
     @repository(PersonaRepository)
     public personaRepository : PersonaRepository,
+    @service(AutenticacionService)
+    public servicioAutenticacion:AutenticacionService,
   ) {}
+
+  @post("/identificarPersona",{
+    responses:{
+      '200':{
+        description:"identificacion de usuarios"
+      }
+    }
+  })
 
   @post('/personas')
   @response(200, {
@@ -44,7 +58,17 @@ export class PersonaController {
     })
     persona: Omit<Persona, 'id'>,
   ): Promise<Persona> {
-    return this.personaRepository.create(persona);
+    let clave = this.servicioAutenticacion.GenerarClave();
+    let claveCifrada = this.servicioAutenticacion.CifrarClave(clave);
+    persona.clave=claveCifrada;
+    let p= await this.personaRepository.create(persona);
+    let destino=persona.correo;
+    let asunto="Registro en la app Pedidos"
+    let contenido=`Hola, ${persona.nombre}, su nombre de usuario es: ${persona.correo} y la contraseña para el acceso a la app es: ${clave}`;
+    fetch(`${Llaves.urlServicioNotificaciones}/envio-correo?correo_destino=${destino}&asunto=${asunto}&contenido=${contenido}`).then ((data:any)=>{
+      console.log(data);
+    });
+    return p;
   }
 
   @get('/personas/count')
